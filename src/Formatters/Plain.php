@@ -41,7 +41,6 @@ function format(array $diff): string
 }
 
 function prepareValue(mixed $value): string
-
 {
     if (is_bool($value)) {
         return $value ? 'true' : 'false';
