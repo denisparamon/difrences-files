@@ -45,7 +45,7 @@ function format(array $diff): string
     return implode("\n", flattenAll(['{', $iter($diff, 1), '}']));
 }
 
-function prepareValue($value, int $depth): string
+function prepareValue(mixed $value, int $depth): string
 {
     if (is_bool($value)) {
         return $value ? 'true' : 'false';
