@@ -1,5 +1,5 @@
 {
-    "name": "denisparamon/difrences-files",
+    "name": "hexlet/code",
     "bin": [
         "bin/gendiff"
     ],
