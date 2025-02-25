@@ -1,7 +1,10 @@
 /vendor/
 .idea
-/build/
+.DS_Store
+.vscode
+logs
+*.log
+*.swo
+*.swp
 *.cache
-testdox.txt
-clover.xml
-/xml-coverage/
+build

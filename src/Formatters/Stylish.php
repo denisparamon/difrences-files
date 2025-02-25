@@ -1,75 +1,136 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Differ\Formatters\Stylish;
 
-use function Funct\Collection\flattenAll;
+use const Differ\Differ\ADDED;
+use const Differ\Differ\DELETED;
+use const Differ\Differ\UNCHANGED;
+use const Differ\Differ\CHANGED;
+use const Differ\Differ\NESTED;
 
-function format(array $diff): string
+const INDENT_SYMBOL = ' ';
+const INDENT_COUNT = 4;
+const COMPARE_SYMBOL_LENGTH = 2;
+const COMPARE_TEXT_SYMBOL_MAP = [
+    ADDED => '+',
+    DELETED => '-',
+    UNCHANGED => ' ',
+    CHANGED => ' ',
+    NESTED => ' ',
+];
+
+function format(array $data): string
 {
-    $iter = function (array $diff, int $depth) use (&$iter): array {
-        return array_map(function ($node) use ($depth, $iter) {
-            [
-                'key' => $key,
-                'type' => $type,
-                'oldValue' => $oldValue,
-                'newValue' => $newValue,
-                'children' => $children
-            ] = $node;
-
-            $indent = makeIndent($depth - 1);
-
-            switch ($type) {
-                case 'complex':
-                    $indentAfter = makeIndent($depth);
-                    return ["{$indent}    {$key}: {", $iter($children, $depth + 1), "{$indentAfter}}"];
-                case 'added':
-                    $preparedNewValue = prepareValue($newValue, $depth);
-                    return "{$indent}  + {$key}: {$preparedNewValue}";
-                case 'removed':
-                    $preparedOldValue = prepareValue($oldValue, $depth);
-                    return "{$indent}  - {$key}: {$preparedOldValue}";
-                case 'unchanged':
-                    $preparedNewValue = prepareValue($newValue, $depth);
-                    return "{$indent}    {$key}: {$preparedNewValue}";
-                case 'updated':
-                    $preparedOldValue = prepareValue($oldValue, $depth);
-                    $preparedNewValue = prepareValue($newValue, $depth);
-                    $addedLine = "{$indent}  + {$key}: {$preparedNewValue}";
-                    $deletedLine = "{$indent}  - {$key}: {$preparedOldValue}";
-                    return implode("\n", [$deletedLine, $addedLine]);
-                default:
-                    throw new \Exception("This type: {$type} is not supported.");
-            };
-        }, $diff);
-    };
-    return implode("\n", flattenAll(['{', $iter($diff, 1), '}']));
+    return iter($data) . PHP_EOL;
 }
 
-function prepareValue(mixed $value, int $depth): string
+function iter(mixed $value, int $depth = 1): string
 {
-    if (is_bool($value)) {
-        return $value ? 'true' : 'false';
+    if (!is_array($value)) {
+        return stringify($value, $depth);
     }
+
+    if (!array_key_exists(0, $value) && !array_key_exists('compare', $value)) {
+        return stringify($value, $depth);
+    }
+
+    $indentSize = $depth * INDENT_COUNT - COMPARE_SYMBOL_LENGTH;
+    $indentValue = str_repeat(INDENT_SYMBOL, $indentSize);
+
+    $closeBracketIndentSize =  $indentSize - INDENT_COUNT + COMPARE_SYMBOL_LENGTH;
+    $closeBracketIndent = $closeBracketIndentSize > 0 ?
+        str_repeat(INDENT_SYMBOL, $closeBracketIndentSize)
+        : ''
+    ;
+
+    $result = array_map(
+        static function ($val) use ($depth, $indentValue) {
+            $key = $val['key'];
+            $compare = $val['compare'];
+
+            if ($compare === CHANGED) {
+                $value1 = sprintf(
+                    "%s%s %s: %s\n",
+                    $indentValue,
+                    getCompareSymbol(DELETED),
+                    $key,
+                    iter($val['value1'], $depth + 1)
+                );
+
+                $value2 = sprintf(
+                    "%s%s %s: %s\n",
+                    $indentValue,
+                    getCompareSymbol(ADDED),
+                    $key,
+                    iter($val['value2'], $depth + 1)
+                );
+
+                return $value1 . $value2;
+            }
+
+            $compareSymbol = getCompareSymbol($compare);
+
+            return sprintf(
+                "%s%s %s: %s\n",
+                $indentValue,
+                $compareSymbol,
+                $key,
+                iter($val['value'], $depth + 1)
+            );
+        },
+        $value
+    );
+
+    return "{\n" . implode($result) . "{$closeBracketIndent}}";
+}
+
+function stringify(mixed $value, int $depth): string
+{
+    return stringifyIter($value, $depth);
+}
+
+function stringifyIter(mixed $value, int $depth): string
+{
+    if (!is_array($value)) {
+        return toString($value);
+    }
+
+    $indentSize = $depth * INDENT_COUNT;
+    $indentValue = str_repeat(INDENT_SYMBOL, $indentSize);
+    $closeBracketIndent = str_repeat(INDENT_SYMBOL, $indentSize - INDENT_COUNT);
+
+    $result = array_map(
+        static function ($key, $val) use ($depth, $indentValue) {
+            return sprintf(
+                "%s%s: %s\n",
+                $indentValue,
+                $key,
+                iter($val, $depth + 1)
+            );
+        },
+        array_keys($value),
+        $value
+    );
+
+    return sprintf(
+        "{\n%s%s}",
+        implode($result),
+        $closeBracketIndent
+    );
+}
+
+function getCompareSymbol(string $compareText): string
+{
+    return COMPARE_TEXT_SYMBOL_MAP[$compareText];
+}
+
+function toString(mixed $value): string
+{
     if (is_null($value)) {
         return 'null';
     }
-    if (!is_object($value)) {
-        return $value;
-    }
 
-    $keys = array_keys(get_object_vars($value));
-    $indent = makeIndent($depth);
-
-    $lines = array_map(function ($key) use ($value, $depth, $indent): string {
-        $childrenValue = prepareValue($value->$key, $depth + 1);
-        return "{$indent}    {$key}: {$childrenValue}";
-    }, $keys);
-
-    $preparedValue = implode("\n", $lines);
-    return "{\n{$preparedValue}\n{$indent}}";
-}
-
-function makeIndent(int $depth): string
-{
-    return str_repeat(" ", 4 * $depth);
+    return trim(var_export($value, true), "'");
 }

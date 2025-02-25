@@ -1,67 +1,111 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Differ\Differ;
 
-use function Funct\Collection\sortBy;
-use function Funct\Collection\union;
-use function Differ\Parsers\parse;
-use function Differ\Formatters\format;
+use JsonException;
 
-function readFile(string $filePath): string
-{
-    if (!file_exists($filePath)) {
-        throw new \Exception("The file {$filePath} does not exists.");
-    }
+use function Differ\DataGetter\getFileData;
+use function Differ\Formatter\format;
+use function Differ\Parser\parse;
+use function Functional\sort;
 
-    return (string) file_get_contents($filePath);
+const UNCHANGED = 'unchanged';
+const CHANGED = 'changed';
+const ADDED = 'added';
+const DELETED = 'deleted';
+const NESTED = 'nested';
+
+/**
+ * @param string $pathToFile1
+ * @param string $pathToFile2
+ * @param string $format
+ *
+ * @return string
+ * @throws JsonException
+ */
+function genDiff(
+    string $pathToFile1,
+    string $pathToFile2,
+    string $format = 'stylish'
+): string {
+    [
+        'dataFormat' => $dataFormat1,
+        'rawData' => $rawData1,
+    ] = getFileData($pathToFile1);
+    [
+        'dataFormat' => $dataFormat2,
+        'rawData' => $rawData2,
+    ] = getFileData($pathToFile2);
+
+    $fileData1 = parse($dataFormat1, $rawData1);
+    $fileData2 = parse($dataFormat2, $rawData2);
+
+    $dataDiff = buildDiffData($fileData1, $fileData2);
+
+    return format($format, $dataDiff);
 }
 
-function genDiff(string $firstFilePath, string $secondFilePath, string $format = 'stylish'): string
+function buildDiffData(array $data1, array $data2): array
 {
-    $firstData = readFile($firstFilePath);
-    $secondData = readFile($secondFilePath);
-
-    $parsedFirstData = parse($firstData, pathinfo($firstFilePath, PATHINFO_EXTENSION));
-    $parsedSecondData = parse($secondData, pathinfo($secondFilePath, PATHINFO_EXTENSION));
-
-    $ast = genAst($parsedFirstData, $parsedSecondData);
-
-    return format($ast, $format);
+    return buildDiffIter($data1, $data2);
 }
 
-function genAst(object $firstData, object $secondData): array
+function buildDiffIter(array $data1, array $data2): array
 {
-    $firstKeys = array_keys(get_object_vars($firstData));
-    $secondKeys = array_keys(get_object_vars($secondData));
-    $unionKeys = union($firstKeys, $secondKeys);
-    $sortedKeys = array_values(sortBy($unionKeys, fn($key) => $key));
+    $uniqueKeys = array_unique(array_merge(array_keys($data1), array_keys($data2)));
+    $sortedKeys = sort($uniqueKeys, static function ($key1, $key2) {
+        return $key1 <=> $key2;
+    });
 
-    $buildAst = array_map(function ($key) use ($firstData, $secondData): array {
-        if (!property_exists($firstData, $key)) {
-            return makeNode($key, 'added', null, $secondData->$key);
-        }
-        if (!property_exists($secondData, $key)) {
-            return makeNode($key, 'removed', $firstData->$key, null);
-        }
-        if (is_object($firstData->$key) && is_object($secondData->$key)) {
-            return makeNode($key, 'complex', null, null, genAst($firstData->$key, $secondData->$key));
-        }
-        if ($firstData->$key === $secondData->$key) {
-            return makeNode($key, 'unchanged', $firstData->$key, $secondData->$key);
-        }
-        return makeNode($key, 'updated', $firstData->$key, $secondData->$key);
-    }, $sortedKeys);
+    return array_map(
+        static function (string $key) use ($data1, $data2) {
+            $value1 = $data1[$key] ?? null;
+            $value2 = $data2[$key] ?? null;
 
-    return $buildAst;
-}
+            if (
+                (is_array($value1) && !array_is_list($value1)) &&
+                (is_array($value2) && !array_is_list($value2))
+            ) {
+                return [
+                    'compare' => NESTED,
+                    'key' => $key,
+                    'value' => buildDiffIter($value1, $value2),
+                ];
+            }
 
-function makeNode(string $key, string $type, mixed $oldValue, mixed $newValue, ?array $children = null): array
-{
-    return [
-        'key' => $key,
-        'type' => $type,
-        'oldValue' => $oldValue,
-        'newValue' => $newValue,
-        'children' => $children
-    ];
+            if (!array_key_exists($key, $data1)) {
+                return [
+                    'compare' => ADDED,
+                    'key' => $key,
+                    'value' => $value2,
+                ];
+            }
+
+            if (!array_key_exists($key, $data2)) {
+                return [
+                    'compare' => DELETED,
+                    'key' => $key,
+                    'value' => $value1,
+                ];
+            }
+
+            if ($value1 === $value2) {
+                return [
+                    'compare' => UNCHANGED,
+                    'key' => $key,
+                    'value' => $value1,
+                ];
+            }
+
+            return [
+                'compare' => CHANGED,
+                'key' => $key,
+                'value1' => $value1,
+                'value2' => $value2,
+            ];
+        },
+        $sortedKeys
+    );
 }
