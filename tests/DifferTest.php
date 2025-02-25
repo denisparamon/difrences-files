@@ -2,73 +2,57 @@
 
 declare(strict_types=1);
 
-namespace Tests;
+namespace CalcDiff\tests;
 
-use JsonException;
 use PHPUnit\Framework\TestCase;
 
-use function Differ\Differ\genDiff;
+use function CalcDiff\Gendiff\gendiff;
 
-class DifferTest extends TestCase
+use const CalcDiff\Gendiff\FORMAT_TREE;
+use const CalcDiff\Gendiff\FORMAT_PLAIN;
+use const CalcDiff\Gendiff\FORMAT_JSON;
+
+class GenDiffTest extends TestCase
 {
-    private string $fixturesPath = __DIR__ . '/fixtures';
-
-    private function getExpectedPath(string $formatter): string
-    {
-        return "{$this->fixturesPath}/{$formatter}-expected.txt";
-    }
-
-    private function getFirstFilePath(string $fileType): string
-    {
-        return "{$this->fixturesPath}/file1.{$fileType}";
-    }
-
-    private function getSecondFilePath(string $fileType): string
-    {
-        return "{$this->fixturesPath}/file2.{$fileType}";
-    }
+    protected string $pathFixtures = __DIR__ . '/fixtures';
 
     /**
-     * @dataProvider dataProvider
-     * @throws JsonException
+     * @dataProvider renderDataProvider
+     * @throws \Exception
      */
-    public function testDiff(
-        string $formatter,
-        string $firstFileType,
-        string $secondFileType
-    ): void {
-        $diff = genDiff($this->getFirstFilePath($firstFileType), $this->getSecondFilePath($secondFileType), $formatter);
+    public function testDefaultRenderFromJson($before, $after, $result, $format)
+    {
+        $result = file_get_contents($result);
 
-        TestCase::assertStringEqualsFile($this->getExpectedPath($formatter), $diff);
+        $this->assertEquals($result, genDiff($before, $after, $format));
     }
 
-    public function dataProvider(): array
+    public function renderDataProvider()
     {
         return [
-            'stylish format, json - json' => [
-                'stylish',
-                'json',
-                'json',
+            [
+                $this->pathFixtures . '/before.json',
+                $this->pathFixtures . '/after.json',
+                $this->pathFixtures . '/tree-result.txt',
+                FORMAT_TREE,
             ],
-            'stylish format, yaml - json' => [
-                'stylish',
-                'yaml',
-                'json',
+            [
+                $this->pathFixtures . '/before.yaml',
+                $this->pathFixtures . '/after.yaml',
+                $this->pathFixtures . '/tree-result.txt',
+                FORMAT_TREE,
             ],
-            'plain format, yaml - yml' => [
-                'plain',
-                'yaml',
-                'yml',
+            [
+                $this->pathFixtures . '/before.json',
+                $this->pathFixtures . '/after.json',
+                $this->pathFixtures . '/plain-result.txt',
+                FORMAT_PLAIN,
             ],
-            'json format, json - json' => [
-                'json',
-                'json',
-                'json',
-            ],
-            'json format, yaml - yml' => [
-                'json',
-                'yaml',
-                'yml',
+            [
+                $this->pathFixtures . '/before.json',
+                $this->pathFixtures . '/after.json',
+                $this->pathFixtures . '/json-result.json',
+                FORMAT_JSON,
             ],
         ];
     }
