@@ -5,73 +5,53 @@ declare(strict_types=1);
 namespace Tests;
 
 use JsonException;
-use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Assert;
 
 use function Differ\Differ\genDiff;
 
-class DifferTest extends TestCase
+$fixturesPath = __DIR__ . '/fixtures';
+
+function getExpectedPath(string $formatter): string
 {
-    private string $fixturesPath = __DIR__ . '/fixtures';
+    global $fixturesPath;
+    return "{$fixturesPath}/{$formatter}-expected.txt";
+}
 
-    private function getExpectedPath(string $formatter): string
-    {
-        return "{$this->fixturesPath}/{$formatter}-expected.txt";
-    }
+function getFirstFilePath(string $fileType): string
+{
+    global $fixturesPath;
+    return "{$fixturesPath}/file1.{$fileType}";
+}
 
-    private function getFirstFilePath(string $fileType): string
-    {
-        return "{$this->fixturesPath}/file1.{$fileType}";
-    }
+function getSecondFilePath(string $fileType): string
+{
+    global $fixturesPath;
+    return "{$fixturesPath}/file2.{$fileType}";
+}
 
-    private function getSecondFilePath(string $fileType): string
-    {
-        return "{$this->fixturesPath}/file2.{$fileType}";
-    }
+/**
+ * @throws JsonException
+ */
+function testDiff(string $formatter, string $firstFileType, string $secondFileType): void
+{
+    $diff = genDiff(getFirstFilePath($firstFileType), getSecondFilePath($secondFileType), $formatter);
 
-    /**
-     * @dataProvider dataProvider
-     * @throws JsonException
-     */
-    public function testDiff(
-        string $formatter,
-        string $firstFileType,
-        string $secondFileType
-    ): void {
-        // Используем явный вызов статического метода вместо динамического
-        $diff = genDiff($this->getFirstFilePath($firstFileType), $this->getSecondFilePath($secondFileType), $formatter);
+    // Исправлен вызов статического метода
+    Assert::assertStringEqualsFile(getExpectedPath($formatter), $diff);
+}
 
-        // Статический метод сравнения строк
-        $this->assertStringEqualsFile($this->getExpectedPath($formatter), $diff);
-    }
+function dataProvider(): array
+{
+    return [
+        ['stylish', 'json', 'json'],
+        ['stylish', 'yaml', 'json'],
+        ['plain', 'yaml', 'yml'],
+        ['json', 'json', 'json'],
+        ['json', 'yaml', 'yml'],
+    ];
+}
 
-    public function dataProvider(): array
-    {
-        return [
-            'stylish format, json - json' => [
-                'stylish',
-                'json',
-                'json',
-            ],
-            'stylish format, yaml - json' => [
-                'stylish',
-                'yaml',
-                'json',
-            ],
-            'plain format, yaml - yml' => [
-                'plain',
-                'yaml',
-                'yml',
-            ],
-            'json format, json - json' => [
-                'json',
-                'json',
-                'json',
-            ],
-            'json format, yaml - yml' => [
-                'json',
-                'yaml',
-                'yml',
-            ],
-        ];
-    }
+// Запуск тестов вручную
+foreach (dataProvider() as $testCase) {
+    testDiff(...$testCase);
 }
