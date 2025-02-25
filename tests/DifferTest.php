@@ -29,6 +29,7 @@ class DifferTest extends TestCase
 
     /**
      * @dataProvider dataProvider
+     *
      * @throws JsonException
      */
     public function testDiff(
