@@ -6,6 +6,7 @@ namespace Tests;
 
 use JsonException;
 use PHPUnit\Framework\TestCase;
+
 use function Differ\Differ\genDiff;
 
 class DifferTest extends TestCase
@@ -29,7 +30,6 @@ class DifferTest extends TestCase
 
     /**
      * @dataProvider dataProvider
-     *
      * @throws JsonException
      */
     public function testDiff(
@@ -39,7 +39,7 @@ class DifferTest extends TestCase
     ): void {
         $diff = genDiff($this->getFirstFilePath($firstFileType), $this->getSecondFilePath($secondFileType), $formatter);
 
-        \PHPUnit\Framework\Assert::assertStringEqualsFile($this->getExpectedPath($formatter), $diff);
+        $this->assertStringEqualsFile($this->getExpectedPath($formatter), $diff);
     }
 
     public function dataProvider(): array
