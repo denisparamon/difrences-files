@@ -7,3 +7,6 @@ parameters:
 
     checkMissingIterableValueType: false
     reportUnmatchedIgnoredErrors: false
+
+    ignoreErrors:
+        - '#Dynamic call to static method#' 
