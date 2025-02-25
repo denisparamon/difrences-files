@@ -37,8 +37,10 @@ class DifferTest extends TestCase
         string $firstFileType,
         string $secondFileType
     ): void {
+        // Используем явный вызов статического метода вместо динамического
         $diff = genDiff($this->getFirstFilePath($firstFileType), $this->getSecondFilePath($secondFileType), $formatter);
 
+        // Статический метод сравнения строк
         $this->assertStringEqualsFile($this->getExpectedPath($formatter), $diff);
     }
 
