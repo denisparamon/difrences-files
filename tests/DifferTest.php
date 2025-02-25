@@ -38,7 +38,6 @@ class DifferTest extends TestCase
     ): void {
         $diff = genDiff($this->getFirstFilePath($firstFileType), $this->getSecondFilePath($secondFileType), $formatter);
 
-        // Исправленный статический вызов
         \PHPUnit\Framework\Assert::assertStringEqualsFile($this->getExpectedPath($formatter), $diff);
     }
 
