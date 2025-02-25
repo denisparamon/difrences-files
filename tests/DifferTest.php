@@ -6,38 +6,24 @@ namespace Tests;
 
 use JsonException;
 use PHPUnit\Framework\Assert;
+use PHPUnit\Framework\TestCase;
 
 use function Differ\Differ\genDiff;
 
-$fixturesPath = __DIR__ . '/fixtures';
+function testDiff(
+    string $formatter,
+    string $firstFileType,
+    string $secondFileType
+): void {
+    $fixturesPath = __DIR__ . '/fixtures';
 
-function getExpectedPath(string $formatter): string
-{
-    global $fixturesPath;
-    return "{$fixturesPath}/{$formatter}-expected.txt";
-}
+    $getExpectedPath = fn(string $formatter) => "{$fixturesPath}/{$formatter}-expected.txt";
+    $getFirstFilePath = fn(string $fileType) => "{$fixturesPath}/file1.{$fileType}";
+    $getSecondFilePath = fn(string $fileType) => "{$fixturesPath}/file2.{$fileType}";
 
-function getFirstFilePath(string $fileType): string
-{
-    global $fixturesPath;
-    return "{$fixturesPath}/file1.{$fileType}";
-}
+    $diff = genDiff($getFirstFilePath($firstFileType), $getSecondFilePath($secondFileType), $formatter);
 
-function getSecondFilePath(string $fileType): string
-{
-    global $fixturesPath;
-    return "{$fixturesPath}/file2.{$fileType}";
-}
-
-/**
- * @throws JsonException
- */
-function testDiff(string $formatter, string $firstFileType, string $secondFileType): void
-{
-    $diff = genDiff(getFirstFilePath($firstFileType), getSecondFilePath($secondFileType), $formatter);
-
-    // Исправлен вызов статического метода
-    Assert::assertStringEqualsFile(getExpectedPath($formatter), $diff);
+    Assert::assertStringEqualsFile($getExpectedPath($formatter), $diff);
 }
 
 function dataProvider(): array
@@ -49,9 +35,4 @@ function dataProvider(): array
         ['json', 'json', 'json'],
         ['json', 'yaml', 'yml'],
     ];
-}
-
-// Запуск тестов вручную
-foreach (dataProvider() as $testCase) {
-    testDiff(...$testCase);
 }
