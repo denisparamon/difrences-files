@@ -45,3 +45,5 @@ cmp-json-yaml-yaml:
 	./bin/gendiff tests/fixtures/file1.yaml tests/fixtures/file2.yaml --format=json
 
 .PHONY: tests
+tests:
+
